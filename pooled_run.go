@@ -8,6 +8,9 @@ import (
 	"time"
 )
 
+var TimeoutErr = errors.New("timeout")
+var ExceedErr = errors.New("exceed worker size")
+
 type Task struct {
 	TraceId    string
 	Cmd        string
@@ -23,6 +26,15 @@ func (task *Task) finish() {
 func (task *Task) WaitResult() error {
 	<-task.wait
 	return task.Err
+}
+
+func (task *Task) WaitResultWithTimeout(timeout time.Duration) error {
+	select {
+	case <-task.wait:
+		return task.Err
+	case <-time.After(timeout):
+		return TimeoutErr
+	}
 }
 
 func NewRunPooledContext(workerSize int, backTaskSize int) *RunPooledContext {
@@ -84,12 +96,12 @@ func (ctx *RunPooledContext) Shutdown() {
 func (ctx *RunPooledContext) WaitShutdown() {
 	<-ctx.threadEnding.trigger
 }
-func (ctx *RunPooledContext) WaitShutdownTimeout(duration time.Duration) bool {
+func (ctx *RunPooledContext) WaitShutdownTimeout(duration time.Duration) error {
 	select {
 	case <-ctx.threadEnding.trigger:
-		return true
+		return nil
 	case <-time.After(duration):
-		return false
+		return TimeoutErr
 	}
 }
 
@@ -128,6 +140,6 @@ func addTask(task *Task, q chan *Task) (*Task, error) {
 	case q <- task:
 		return task, nil
 	default:
-		return nil, errors.New("exceed worker size")
+		return nil, ExceedErr
 	}
 }
