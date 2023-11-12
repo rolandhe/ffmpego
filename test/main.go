@@ -39,7 +39,7 @@ func convertFileInPool(wg *sync.WaitGroup, ctx *ffmpego.RunPooledContext) {
 
 func convertBytesInPool(wg *sync.WaitGroup, ctx *ffmpego.RunPooledContext) {
 	defer wg.Done()
-	format := "ffmpeg -f mp3 -i %s -f adts %s"
+	format := "ffmpeg -f mp3 -i %s -f adts -acodec aac %s"
 	inputData, err := os.ReadFile("test/s95.mp3")
 	if err != nil {
 		fmt.Println(err)
