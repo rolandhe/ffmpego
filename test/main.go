@@ -13,10 +13,10 @@ func main() {
 	//convertFileInPool(ctx)
 
 	wg := &sync.WaitGroup{}
-	wg.Add(1)
+	wg.Add(3)
 
-	//go convertBytesInPool(wg, ctx)
-	//go convertFileInPool(wg, ctx)
+	go convertBytesInPool(wg, ctx)
+	go convertFileInPool(wg, ctx)
 	go durationInPool(wg, ctx)
 
 	wg.Wait()
