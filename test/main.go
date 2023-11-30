@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/rolandhe/ffmpego"
+	"log"
 	"os"
 	"sync"
 )
@@ -12,10 +13,11 @@ func main() {
 	//convertFileInPool(ctx)
 
 	wg := &sync.WaitGroup{}
-	wg.Add(2)
+	wg.Add(3)
 
 	go convertBytesInPool(wg, ctx)
 	go convertFileInPool(wg, ctx)
+	go durationInPool(wg, ctx)
 
 	wg.Wait()
 
@@ -35,6 +37,21 @@ func convertFileInPool(wg *sync.WaitGroup, ctx *ffmpego.RunPooledContext) {
 		fmt.Println(err)
 		return
 	}
+}
+
+func durationInPool(wg *sync.WaitGroup, ctx *ffmpego.RunPooledContext) {
+	defer wg.Done()
+	task, err := ctx.GetFileDuration("trace_id_100266", "test/s95.mp3")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	err = task.WaitResult()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	log.Printf("durationInPool:%d,%v", task.DurationVal, task.Err)
 }
 
 func convertBytesInPool(wg *sync.WaitGroup, ctx *ffmpego.RunPooledContext) {

@@ -25,6 +25,15 @@ func runCmdBasingFile(traceId string, cmd string) error {
 	return nil
 }
 
+func runQuickDuration(traceId string, cmd string) (int64, error) {
+	var duration C.int64_t
+	ret := int32(C.quick_duration(C.CString(traceId), C.CString(cmd), &duration))
+	if ret < 0 {
+		return 0, errors.New("run test failed")
+	}
+	return int64(duration), nil
+}
+
 type fakeString struct {
 	Data *C.char
 	Len  int

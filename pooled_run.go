@@ -2,6 +2,7 @@ package ffmpego
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"runtime"
 	"sync/atomic"
@@ -12,12 +13,14 @@ var TimeoutErr = errors.New("timeout")
 var ExceedErr = errors.New("exceed worker size")
 
 type Task struct {
-	TraceId    string
-	Cmd        string
-	InputData  []byte
-	OutputData []byte
-	Err        error
-	wait       chan struct{}
+	TraceId       string
+	Cmd           string
+	InputData     []byte
+	OutputData    []byte
+	Err           error
+	wait          chan struct{}
+	quickDuration bool
+	DurationVal   int64
 }
 
 func (task *Task) finish() {
@@ -77,6 +80,16 @@ func (ctx *RunPooledContext) AddFileTask(traceId string, cmd string) (*Task, err
 	return addTask(task, ctx.q)
 }
 
+func (ctx *RunPooledContext) GetFileDuration(traceId string, filePath string) (*Task, error) {
+	task := &Task{
+		TraceId:       traceId,
+		Cmd:           fmt.Sprintf("ffmpeg -i %s", filePath),
+		quickDuration: true,
+		wait:          make(chan struct{}),
+	}
+	return addTask(task, ctx.q)
+}
+
 // AddBytesTask format:ffmpeg [opts]. -i %s [opts]. %s,
 // e.g. ffmpeg -f s16l4 -ac 1 -ar 16000 %s -f mp3 %s
 func (ctx *RunPooledContext) AddBytesTask(traceId string, format string, inputData []byte) (*Task, error) {
@@ -126,6 +139,12 @@ func buildWorkers(workerSize int, ctx *RunPooledContext) {
 }
 
 func processTask(tid int, task *Task) {
+	if task.quickDuration {
+		task.DurationVal, task.Err = runQuickDuration(task.TraceId, task.Cmd)
+		log.Printf("worker thread id:%d,err:%v\n", tid, task.Err)
+		task.finish()
+		return
+	}
 	if task.InputData == nil {
 		task.Err = runCmdBasingFile(task.TraceId, task.Cmd)
 	} else {
