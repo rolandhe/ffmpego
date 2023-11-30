@@ -13,10 +13,10 @@ func main() {
 	//convertFileInPool(ctx)
 
 	wg := &sync.WaitGroup{}
-	wg.Add(3)
+	wg.Add(1)
 
-	go convertBytesInPool(wg, ctx)
-	go convertFileInPool(wg, ctx)
+	//go convertBytesInPool(wg, ctx)
+	//go convertFileInPool(wg, ctx)
 	go durationInPool(wg, ctx)
 
 	wg.Wait()
@@ -41,7 +41,7 @@ func convertFileInPool(wg *sync.WaitGroup, ctx *ffmpego.RunPooledContext) {
 
 func durationInPool(wg *sync.WaitGroup, ctx *ffmpego.RunPooledContext) {
 	defer wg.Done()
-	task, err := ctx.GetFileDuration("trace_id_100266", "test/s95.mp3")
+	task, err := ctx.GetFileDuration("trace_id_100266", "test/vvx.m4a")
 	if err != nil {
 		fmt.Println(err)
 		return

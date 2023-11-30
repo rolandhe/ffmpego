@@ -80,6 +80,7 @@ func (ctx *RunPooledContext) AddFileTask(traceId string, cmd string) (*Task, err
 	return addTask(task, ctx.q)
 }
 
+// GetFileDuration  return nano
 func (ctx *RunPooledContext) GetFileDuration(traceId string, filePath string) (*Task, error) {
 	task := &Task{
 		TraceId:       traceId,
