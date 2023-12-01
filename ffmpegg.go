@@ -1,5 +1,6 @@
 package ffmpego
 
+// #cgo CFLAGS:  -I/usr/local/include
 // #cgo LDFLAGS: -L/usr/local/lib -lrun_ffmpeg
 // #include <run_ffmpeg.h>
 import "C"
