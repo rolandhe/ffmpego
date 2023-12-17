@@ -2,6 +2,7 @@ package ffmpego
 
 // #cgo CFLAGS:  -I/usr/local/include
 // #cgo LDFLAGS: -L/usr/local/lib -lrun_ffmpeg
+// #include <stdlib.h>
 // #include <run_ffmpeg.h>
 import "C"
 import (
@@ -14,26 +15,61 @@ import (
 	"unsafe"
 )
 
+type cCharPoint *C.char
+
 func init() {
 	C.init_ffmpeg()
 }
 
-func runCmdBasingFile(traceId string, cmd string) error {
-	ret := int32(C.run_ffmpeg_cmd(C.CString(traceId), C.CString(cmd)))
+func RunCmdBasingFile(traceId string, cmd string) error {
+	cTraceId := C.CString(traceId)
+	defer C.free(unsafe.Pointer(cTraceId))
+	cCmd := C.CString(cmd)
+	defer C.free(unsafe.Pointer(cCmd))
+	ret := int32(C.run_ffmpeg_cmd(cTraceId, cCmd))
 
 	if ret < 0 {
-		return errors.New("run test failed")
+		return errors.New("run cmd failed")
 	}
 	return nil
 }
 
-func runQuickDuration(traceId string, cmd string) (int64, error) {
+func RunQuickDuration(traceId string, cmd string) (int64, error) {
 	var duration C.int64_t
-	ret := int32(C.quick_duration(C.CString(traceId), C.CString(cmd), &duration))
+	cTraceId := C.CString(traceId)
+	defer C.free(unsafe.Pointer(cTraceId))
+	cCmd := C.CString(cmd)
+	defer C.free(unsafe.Pointer(cCmd))
+	ret := int32(C.quick_duration(cTraceId, cCmd, &duration))
 	if ret < 0 {
-		return 0, errors.New("run test failed")
+		return 0, errors.New("run cmd failed")
 	}
 	return int64(duration), nil
+}
+
+func RunCmdMemInOut(traceId string, input []byte, cmdFmt string) ([]byte, error) {
+	cBytes := C.CBytes(input)
+	defer C.free(cBytes)
+	inputPt := C.new_input_mem(cCharPoint(cBytes), C.int64_t(int64(len(input))), 0)
+	defer C.free_mem(inputPt, 0)
+	outPt := C.new_output_mem()
+	defer C.free_mem(outPt, 1)
+
+	inFile := fmt.Sprintf("filemem:0x%X", int64(inputPt))
+	outFile := fmt.Sprintf("filemem:0x%X", int64(outPt))
+	ffcmd := fmt.Sprintf(cmdFmt, inFile, outFile)
+	cTraceId := C.CString(traceId)
+	defer C.free(unsafe.Pointer(cTraceId))
+	cCmd := C.CString(ffcmd)
+	defer C.free(unsafe.Pointer(cCmd))
+	ret := int32(C.run_ffmpeg_cmd(cTraceId, cCmd))
+	if ret < 0 {
+		return nil, errors.New("run cmdFmt failed")
+	}
+	var dataLen C.int
+	outDataPoint := C.get_mem_info(outPt, &dataLen)
+	out := C.GoBytes(unsafe.Pointer(outDataPoint), dataLen)
+	return out, nil
 }
 
 type fakeString struct {

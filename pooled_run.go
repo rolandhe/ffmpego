@@ -141,13 +141,13 @@ func buildWorkers(workerSize int, ctx *RunPooledContext) {
 
 func processTask(tid int, task *Task) {
 	if task.quickDuration {
-		task.DurationVal, task.Err = runQuickDuration(task.TraceId, task.Cmd)
+		task.DurationVal, task.Err = RunQuickDuration(task.TraceId, task.Cmd)
 		log.Printf("worker thread id:%d,err:%v\n", tid, task.Err)
 		task.finish()
 		return
 	}
 	if task.InputData == nil {
-		task.Err = runCmdBasingFile(task.TraceId, task.Cmd)
+		task.Err = RunCmdBasingFile(task.TraceId, task.Cmd)
 	} else {
 		task.OutputData, task.Err = runCmdBasingBytes(task.TraceId, task.Cmd, task.InputData)
 	}

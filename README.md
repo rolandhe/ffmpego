@@ -45,7 +45,7 @@ task.WaitResultWithTimeout(timeout time.Duration), 支持等待超时，如果�
 执行非文件的转换需要传入如下的指令，
 
 ```
-format := "ffmpeg -f mp3 -i %s -f adts %s"
+format := "ffmpeg -f mp3 -i %s -f adts -acodec aac %s"
 ```
 
 -f mp3 指的是输入数据的格式
@@ -56,7 +56,7 @@ format := "ffmpeg -f mp3 -i %s -f adts %s"
 调用task, err := ctx.AddBytesTask("trace_id_9999", format, inputData)函数执行。
 
 ```
-    format := "ffmpeg -f mp3 -i %s -f adts %s"
+    format := "ffmpeg -f mp3 -i %s -f adts  -acodec aac  %s"
     // 从文件中读取需要转换的数据
 	inputData, err := os.ReadFile("test/s95.mp3")
 	if err != nil {
