@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 )
 
 func main() {
@@ -75,4 +76,76 @@ func convertBytesInPool(wg *sync.WaitGroup, ctx *ffmpego.RunPooledContext) {
 	outputData := task.OutputData
 	err = os.WriteFile("test/out_byte.aac", outputData, os.ModePerm)
 	fmt.Println("write aac", err)
+}
+
+func pf() {
+	iFmt := "ffmpeg -i %s -vn -f s16le -ac 1 -ar 16000 %s"
+
+	w, f, err := ffmpego.StartInputStream("trace_id_1999", iFmt, "/home/xiufeng/github/ffmpego/main/ion.pcm")
+	if err != nil {
+		return
+	}
+
+	inputData, _ := os.ReadFile("/home/xiufeng/github/ffmpego/main/ion.ogg")
+	for {
+		n, err := w.Write(inputData)
+		if err != nil {
+			return
+		}
+		if n == len(inputData) {
+			break
+		}
+		inputData = inputData[n:]
+	}
+
+	w.Close()
+	for {
+
+		ok, err := f.TryGetTimeout(time.Second * 2)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		if ok {
+			break
+		}
+	}
+	fmt.Println("okk...")
+}
+
+func pp() {
+	iFmt := "ffmpeg -i %s -vn -f s16le -ac 1 -ar 16000 %s"
+	fs, _ := os.Create("/home/xiufeng/github/ffmpego/main/ion.pcm")
+	defer fs.Close()
+	proc := ffmpego.NewFileStreamOutputProcessor(fs)
+	w, f, err := ffmpego.StartStream("trace_id_1999", iFmt, proc)
+	if err != nil {
+		return
+	}
+
+	inputData, _ := os.ReadFile("/home/xiufeng/github/ffmpego/main/ion.ogg")
+	for {
+		n, err := w.Write(inputData)
+		if err != nil {
+			return
+		}
+		if n == len(inputData) {
+			break
+		}
+		inputData = inputData[n:]
+	}
+
+	w.Close()
+	for {
+
+		ok, err := f.TryGetTimeout(time.Second * 2)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		if ok {
+			break
+		}
+	}
+	fmt.Println("okk...")
 }
