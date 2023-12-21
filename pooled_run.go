@@ -149,7 +149,7 @@ func processTask(tid int, task *Task) {
 	if task.InputData == nil {
 		task.Err = RunCmdBasingFile(task.TraceId, task.Cmd)
 	} else {
-		task.OutputData, task.Err = runCmdBasingBytes(task.TraceId, task.Cmd, task.InputData)
+		task.OutputData, task.Err = RunDataProtoUseOutPipe(task.TraceId, task.Cmd, task.InputData)
 	}
 	log.Printf("worker thread id:%d,err:%v\n", tid, task.Err)
 	task.finish()

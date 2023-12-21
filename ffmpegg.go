@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"sync/atomic"
+	"time"
 	"unsafe"
 )
 
@@ -97,11 +98,26 @@ func (f *Future) TryGet() (bool, error) {
 	}
 }
 
+func (f *Future) TryGetTimeout(d time.Duration) (bool, error) {
+	select {
+	case v := <-f.ch:
+		if f.err != nil {
+			return true, f.err
+		}
+		if v != 0 {
+			return true, errors.New(fmt.Sprintf("return err:%d", v))
+		}
+		return true, nil
+	case <-time.After(d):
+		return false, nil
+	}
+}
+
 type StreamOutputProcessor interface {
 	Process(data []byte) error
 }
 
-// StartStream runCmdBasingBytes format:ffmpeg [opts]. -i %s [opts]. %s,
+// StartStream RunDataProtoUseOutPipe format:ffmpeg [opts]. -i %s [opts]. %s,
 // e.g. ffmpeg -f s16l4 -ac 1 -ar 16000 -i %s -f mp3 %s
 // 通过 io.WriteCloser 可以持续不断的喂数据给ffmpeg
 func StartStream(traceId string, format string, process StreamOutputProcessor) (io.WriteCloser, *Future, error) {
@@ -117,7 +133,7 @@ func StartStream(traceId string, format string, process StreamOutputProcessor) (
 	}
 
 	in := fmt.Sprintf("pipe:%d", uint64(inReader.Fd()))
-	out := fmt.Sprintf("pipe:%d", uint64(outWriter.Fd()))
+	out := fmt.Sprintf("pipe:%d;auto_close", uint64(outWriter.Fd()))
 
 	cmd := fmt.Sprintf(format, in, out)
 
@@ -136,32 +152,36 @@ func StartStream(traceId string, format string, process StreamOutputProcessor) (
 		for {
 			n, err := r.Read(buf)
 			if err == io.EOF {
-				close(waiter)
 				break
 			}
 			if err != nil {
 				future.err = err
 				ppWriter.Close()
-				close(waiter)
 				break
 			}
 			if n > 0 {
 				if err = process.Process(buf[:n]); err != nil {
 					future.err = err
 					ppWriter.Close()
-					close(waiter)
 					break
 				}
 			}
 		}
+		outReader.Close()
+		inReader.Close()
+		close(waiter)
 	}(outReader)
 
 	go func() {
 		ret := int32(C.run_ffmpeg_cmd(C.CString(traceId), C.CString(cmd)))
-		outWriter.Close()
+		if ret < 0 {
+			select {
+			case <-waiter:
+			case <-time.After(time.Millisecond * 20):
+				outWriter.Close()
+			}
+		}
 		<-waiter
-		outReader.Close()
-		inReader.Close()
 		resultChan <- ret
 	}()
 
@@ -187,12 +207,12 @@ func (pw *pipeWriter) Close() error {
 	if !pw.closed.CompareAndSwap(false, true) {
 		return nil
 	}
-	return pw.Close()
+	return pw.writer.Close()
 }
 
-// runCmdBasingBytes format:ffmpeg [opts]. -i %s [opts]. %s,
+// RunDataProtoUseOutPipe format:ffmpeg [opts]. -i %s [opts]. %s,
 // e.g. ffmpeg -f s16l4 -ac 1 -ar 16000 -i %s -f mp3 %s
-func runCmdBasingBytes(traceId string, format string, data []byte) ([]byte, error) {
+func RunDataProtoUseOutPipe(traceId string, format string, data []byte) ([]byte, error) {
 	r, w, err := os.Pipe()
 	if err != nil {
 		return nil, err
@@ -215,16 +235,15 @@ func runCmdBasingBytes(traceId string, format string, data []byte) ([]byte, erro
 		for {
 			n, err := f.Read(buf)
 			if n <= 0 || err == io.EOF {
-				close(wait)
 				break
 			}
 			if err != nil {
 				holder.err = err
-				close(wait)
 				break
 			}
 			holder.data = append(holder.data, buf[:n]...)
 		}
+		close(wait)
 	}(r)
 
 	fs := (*fakeString)(unsafe.Pointer(&cmd))
