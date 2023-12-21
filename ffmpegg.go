@@ -188,6 +188,37 @@ func StartStream(traceId string, format string, process StreamOutputProcessor) (
 	return ppWriter, future, nil
 }
 
+// StartInputStream  format:ffmpeg [opts]. -i %s [opts]. %s,
+// e.g. ffmpeg -f s16l4 -ac 1 -ar 16000 -i %s %s
+// 通过 io.WriteCloser 可以持续不断的喂数据给ffmpeg
+func StartInputStream(traceId string, format string, filename string) (io.WriteCloser, *Future, error) {
+	inReader, inWriter, err := os.Pipe()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	in := fmt.Sprintf("pipe:%d", uint64(inReader.Fd()))
+
+	cmd := fmt.Sprintf(format, in, filename)
+
+	resultChan := make(chan int32, 1)
+	future := &Future{
+		ch: resultChan,
+	}
+
+	ppWriter := &pipeWriter{
+		writer: inWriter,
+	}
+
+	go func() {
+		ret := int32(C.run_ffmpeg_cmd(C.CString(traceId), C.CString(cmd)))
+		inReader.Close()
+		resultChan <- ret
+	}()
+
+	return ppWriter, future, nil
+}
+
 type pipeWriter struct {
 	closed atomic.Bool
 	writer *os.File
