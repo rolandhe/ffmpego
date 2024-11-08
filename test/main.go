@@ -9,21 +9,47 @@ import (
 	"time"
 )
 
+type parent struct {
+	name string
+}
+
+func (p * parent)show()  {
+	fmt.Println(p.name)
+}
+
+type child struct {
+	*parent
+}
+
+func (c *child)show ()  {
+	c.parent.show()
+	fmt.Println("i am child")
+}
+
+
 func main() {
-	ctx := ffmpego.NewRunPooledContext(3, 10)
-	//convertFileInPool(ctx)
 
-	wg := &sync.WaitGroup{}
-	wg.Add(3)
+	c := &child{
+		parent: &parent{
+			name:"parent",
+		},
+	}
+	c.show()
 
-	go convertBytesInPool(wg, ctx)
-	go convertFileInPool(wg, ctx)
-	go durationInPool(wg, ctx)
-
-	wg.Wait()
-
-	ctx.Shutdown()
-	ctx.WaitShutdown()
+	//ctx := ffmpego.NewRunPooledContext(3, 10)
+	////convertFileInPool(ctx)
+	//
+	//wg := &sync.WaitGroup{}
+	//wg.Add(3)
+	//
+	//go convertBytesInPool(wg, ctx)
+	//go convertFileInPool(wg, ctx)
+	//go durationInPool(wg, ctx)
+	//
+	//wg.Wait()
+	//
+	//ctx.Shutdown()
+	//ctx.WaitShutdown()
 }
 
 func convertFileInPool(wg *sync.WaitGroup, ctx *ffmpego.RunPooledContext) {

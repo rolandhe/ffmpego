@@ -99,6 +99,8 @@ func (f *Future) TryGet() (bool, error) {
 }
 
 func (f *Future) TryGetTimeout(d time.Duration) (bool, error) {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
 	select {
 	case v := <-f.ch:
 		if f.err != nil {
@@ -108,7 +110,7 @@ func (f *Future) TryGetTimeout(d time.Duration) (bool, error) {
 			return true, errors.New(fmt.Sprintf("return err:%d", v))
 		}
 		return true, nil
-	case <-time.After(d):
+	case <-timer.C:
 		return false, nil
 	}
 }
@@ -175,9 +177,11 @@ func StartStream(traceId string, format string, process StreamOutputProcessor) (
 	go func() {
 		ret := int32(C.run_ffmpeg_cmd(C.CString(traceId), C.CString(cmd)))
 		if ret < 0 {
+			timer := time.NewTimer(time.Millisecond * 20)
+			defer timer.Stop()
 			select {
 			case <-waiter:
-			case <-time.After(time.Millisecond * 20):
+			case <-timer.C:
 				outWriter.Close()
 			}
 		}

@@ -32,10 +32,12 @@ func (task *Task) WaitResult() error {
 }
 
 func (task *Task) WaitResultWithTimeout(timeout time.Duration) error {
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
 	select {
 	case <-task.wait:
 		return task.Err
-	case <-time.After(timeout):
+	case <-timer.C:
 		return TimeoutErr
 	}
 }
@@ -111,10 +113,12 @@ func (ctx *RunPooledContext) WaitShutdown() {
 	<-ctx.threadEnding.trigger
 }
 func (ctx *RunPooledContext) WaitShutdownTimeout(duration time.Duration) error {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
 	select {
 	case <-ctx.threadEnding.trigger:
 		return nil
-	case <-time.After(duration):
+	case <-timer.C:
 		return TimeoutErr
 	}
 }
@@ -123,7 +127,11 @@ func buildWorkers(workerSize int, ctx *RunPooledContext) {
 	for i := 0; i < workerSize; i++ {
 		go func(tid int) {
 			runtime.LockOSThread()
+			d := time.Second * 10
+			timer := time.NewTimer(d)
+			defer timer.Stop()
 			for {
+				timer.Reset(d)
 				select {
 				case <-ctx.end:
 					ctx.threadEnding.Done()
@@ -131,7 +139,7 @@ func buildWorkers(workerSize int, ctx *RunPooledContext) {
 					return
 				case task := <-ctx.q:
 					processTask(tid, task)
-				case <-time.After(time.Second * 10):
+				case <-timer.C:
 					log.Printf("i am worker thread %d,no task\n", tid)
 				}
 			}
